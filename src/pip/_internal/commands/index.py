@@ -1,8 +1,8 @@
 import logging
 from optparse import Values
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional
 
-from pip._vendor.packaging.version import LegacyVersion, Version
+from pip._vendor.packaging.version import Version
 
 from pip._internal.cli import cmdoptions
 from pip._internal.cli.req_command import IndexGroupCommand
@@ -24,12 +24,12 @@ class IndexCommand(IndexGroupCommand):
     Inspect information available from package indexes.
     """
 
+    ignore_require_venv = True
     usage = """
         %prog versions <package>
     """
 
-    def add_options(self):
-        # type: () -> None
+    def add_options(self) -> None:
         cmdoptions.add_target_python_options(self.cmd_opts)
 
         self.cmd_opts.add_option(cmdoptions.ignore_requires_python())
@@ -45,8 +45,7 @@ class IndexCommand(IndexGroupCommand):
         self.parser.insert_option_group(0, index_opts)
         self.parser.insert_option_group(0, self.cmd_opts)
 
-    def run(self, options, args):
-        # type: (Values, List[Any]) -> int
+    def run(self, options: Values, args: List[str]) -> int:
         handlers = {
             "versions": self.get_available_package_versions,
         }
@@ -78,12 +77,11 @@ class IndexCommand(IndexGroupCommand):
 
     def _build_package_finder(
         self,
-        options,  # type: Values
-        session,  # type: PipSession
-        target_python=None,  # type: Optional[TargetPython]
-        ignore_requires_python=None,  # type: Optional[bool]
-    ):
-        # type: (...) -> PackageFinder
+        options: Values,
+        session: PipSession,
+        target_python: Optional[TargetPython] = None,
+        ignore_requires_python: Optional[bool] = None,
+    ) -> PackageFinder:
         """
         Create a package finder appropriate to the index command.
         """
@@ -102,10 +100,9 @@ class IndexCommand(IndexGroupCommand):
             target_python=target_python,
         )
 
-    def get_available_package_versions(self, options, args):
-        # type: (Values, List[Any]) -> None
+    def get_available_package_versions(self, options: Values, args: List[Any]) -> None:
         if len(args) != 1:
-            raise CommandError('You need to specify exactly one argument')
+            raise CommandError("You need to specify exactly one argument")
 
         target_python = cmdoptions.make_target_python(options)
         query = args[0]
@@ -118,26 +115,25 @@ class IndexCommand(IndexGroupCommand):
                 ignore_requires_python=options.ignore_requires_python,
             )
 
-            versions: Iterable[Union[LegacyVersion, Version]] = (
-                candidate.version
-                for candidate in finder.find_all_candidates(query)
+            versions: Iterable[Version] = (
+                candidate.version for candidate in finder.find_all_candidates(query)
             )
 
             if not options.pre:
                 # Remove prereleases
-                versions = (version for version in versions
-                            if not version.is_prerelease)
+                versions = (
+                    version for version in versions if not version.is_prerelease
+                )
             versions = set(versions)
 
             if not versions:
                 raise DistributionNotFound(
-                    'No matching distribution found for {}'.format(query))
+                    f"No matching distribution found for {query}"
+                )
 
-            formatted_versions = [str(ver) for ver in sorted(
-                versions, reverse=True)]
+            formatted_versions = [str(ver) for ver in sorted(versions, reverse=True)]
             latest = formatted_versions[0]
 
-        write_output('{} ({})'.format(query, latest))
-        write_output('Available versions: {}'.format(
-            ', '.join(formatted_versions)))
+        write_output(f"{query} ({latest})")
+        write_output("Available versions: {}".format(", ".join(formatted_versions)))
         print_dist_installation_info(query, latest)

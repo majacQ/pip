@@ -47,7 +47,7 @@ $ pip install git+https://github.com/pypa/sampleproject.git@main
 Successfully installed sampleproject
 ```
 
-See {ref}`VCS Support` for more information about this syntax.
+See {doc}`topics/vcs-support` for more information about this syntax.
 
 ### Install a package from a distribution file
 
@@ -81,10 +81,8 @@ Successfully installed sampleproject
 
 ```{pip-cli}
 $ pip install --upgrade sampleproject
-Uninstalling sampleproject:
    [...]
-Proceed (y/n)? y
-Successfully uninstalled sampleproject
+Successfully installed sampleproject
 ```
 
 ### Uninstall a package
@@ -93,12 +91,12 @@ Successfully uninstalled sampleproject
 $ pip uninstall sampleproject
 Uninstalling sampleproject:
    [...]
-Proceed (y/n)? y
+Proceed (Y/n)? y
 Successfully uninstalled sampleproject
 ```
 
 ## Next Steps
 
 It is recommended to learn about what virtual environments are and how to use
-them. This is covered in the ["Installing Packages"](pypug:tutorials/installing-packages)
+them. This is covered in the {doc}`Installing Packages <pypug:tutorials/installing-packages>`
 tutorial on packaging.python.org.
