@@ -14,6 +14,7 @@ getting-started
 installation
 user_guide
 topics/index
+reference/index
 cli/index
 ```
 
@@ -22,7 +23,7 @@ cli/index
 :hidden:
 
 development/index
-ux_research_design
+ux-research-design/index
 news
 Code of Conduct <https://github.com/pypa/.github/blob/main/CODE_OF_CONDUCT.md>
 GitHub <https://github.com/pypa/pip>
@@ -45,5 +46,7 @@ lists or chat rooms:
 [pypi]: https://pypi.org/
 [issue-tracker]: https://github.com/pypa/pip/issues/
 [packaging-discourse]: https://discuss.python.org/c/packaging/14
-[irc-pypa]: https://webchat.freenode.net/#pypa
-[irc-pypa-dev]: https://webchat.freenode.net/#pypa-dev
+[irc-pypa]: https://kiwiirc.com/nextclient/#ircs://irc.libera.chat:+6697/pypa
+[irc-pypa-dev]: https://kiwiirc.com/nextclient/#ircs://irc.libera.chat:+6697/pypa-dev
+
+If you find any security issues, please report to [security@python.org](mailto:security@python.org)

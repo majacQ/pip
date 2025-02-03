@@ -1,18 +1,17 @@
 from typing import (
     Any,
-    Collection,
     Generic,
     Iterable,
     Iterator,
     Mapping,
-    Optional,
     Protocol,
+    Sequence,
     Union,
 )
 
 from .reporters import BaseReporter
 from .resolvers import RequirementInformation
-from .structs import KT, RT, CT, Matches
+from .structs import CT, KT, RT, Matches
 
 class Preference(Protocol):
     def __lt__(self, __other: Any) -> bool: ...
@@ -25,6 +24,7 @@ class AbstractProvider(Generic[RT, CT, KT]):
         resolutions: Mapping[KT, CT],
         candidates: Mapping[KT, Iterator[CT]],
         information: Mapping[KT, Iterator[RequirementInformation[RT, CT]]],
+        backtrack_causes: Sequence[RequirementInformation[RT, CT]],
     ) -> Preference: ...
     def find_matches(
         self,

@@ -8,6 +8,7 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import unicodedata
 from typing import Iterator, List, Optional, Set
 
 from nox.sessions import Session
@@ -26,10 +27,9 @@ def get_version_from_arguments(session: Session) -> Optional[str]:
     # We delegate to a script here, so that it can depend on packaging.
     session.install("packaging")
     cmd = [
-        # https://github.com/theacodes/nox/pull/378
-        os.path.join(session.bin, "python"),  # type: ignore
+        os.path.join(session.bin, "python"),
         "tools/release/check_version.py",
-        version
+        version,
     ]
     not_ok = subprocess.run(cmd).returncode
     if not_ok:
@@ -46,9 +46,36 @@ def modified_files_in_git(*args: str) -> int:
     ).returncode
 
 
+def strip_rtl_ltr_overrides(a: str) -> str:
+    """Strip RIGHT-TO-LEFT OVERRIDE and LEFT-TO-RIGHT OVERRIDE characters
+    from author names.
+    Reorder the characters in between them to preserve the perception.
+    See https://github.com/pypa/pip/issues/12467 for more info."""
+    rtl = "\N{RIGHT-TO-LEFT OVERRIDE}"
+    ltr = "\N{LEFT-TO-RIGHT OVERRIDE}"
+
+    # If there are no overrides to RIGHT-TO-LEFT,
+    # only strip useless LEFT-TO-RIGHT overrides.
+    # This returns the original for most of the authors.
+    # It also serves as a termination condition for recursive calls.
+    if rtl not in a:
+        return a.replace(ltr, "")
+
+    prefix = a[: a.index(rtl)].replace(ltr, "")
+    rest = a[: a.index(rtl) : -1]
+    if ltr not in rest:
+        rest = rest.replace(rtl, "")
+    else:
+        rest = a[a.index(ltr) - 1 : a.index(rtl) : -1].replace(rtl, "")
+        rest += a[a.index(ltr) + 1 :]
+    combined = prefix + strip_rtl_ltr_overrides(rest)
+    assert rtl not in combined, f"RIGHT-TO-LEFT OVERRIDE in {combined!r}"
+    assert ltr not in combined, f"LEFT-TO-RIGHT OVERRIDE in {combined!r}"
+    return combined
+
+
 def get_author_list() -> List[str]:
-    """Get the list of authors from Git commits.
-    """
+    """Get the list of authors from Git commits."""
     # subprocess because session.run doesn't give us stdout
     # only use names in list of Authors
     result = subprocess.run(
@@ -62,6 +89,8 @@ def get_author_list() -> List[str]:
     seen_authors: Set[str] = set()
     for author in result.stdout.splitlines():
         author = author.strip()
+        author = strip_rtl_ltr_overrides(author)
+        author = unicodedata.normalize("NFC", author)
         if author.lower() not in seen_authors:
             seen_authors.add(author.lower())
             authors.append(author)
@@ -87,7 +116,7 @@ def commit_file(session: Session, filename: str, *, message: str) -> None:
 
 def generate_news(session: Session, version: str) -> None:
     session.install("towncrier")
-    session.run("towncrier", "--yes", "--version", version, silent=True)
+    session.run("towncrier", "build", "--yes", "--version", version, silent=True)
 
 
 def update_version_file(version: str, filepath: str) -> None:
@@ -103,13 +132,16 @@ def update_version_file(version: str, filepath: str) -> None:
             else:
                 f.write(line)
 
-    assert file_modified, \
-        f"Version file {filepath} did not get modified"
+    assert file_modified, f"Version file {filepath} did not get modified"
 
 
 def create_git_tag(session: Session, tag_name: str, *, message: str) -> None:
     session.run(
-        "git", "tag", "-m", message, tag_name, external=True, silent=True,
+        # fmt: off
+        "git", "tag", "-m", message, tag_name,
+        # fmt: on
+        external=True,
+        silent=True,
     )
 
 
@@ -148,51 +180,52 @@ def have_files_in_folder(folder_name: str) -> bool:
 
 @contextlib.contextmanager
 def workdir(
-        nox_session: Session,
-        dir_path: pathlib.Path,
+    nox_session: Session,
+    dir_path: pathlib.Path,
 ) -> Iterator[pathlib.Path]:
     """Temporarily chdir when entering CM and chdir back on exit."""
     orig_dir = pathlib.Path.cwd()
 
-    # https://github.com/theacodes/nox/pull/376
-    nox_session.chdir(dir_path)  # type: ignore
+    nox_session.chdir(dir_path)
     try:
         yield dir_path
     finally:
-        nox_session.chdir(orig_dir)  # type: ignore
+        nox_session.chdir(orig_dir)
 
 
 @contextlib.contextmanager
 def isolated_temporary_checkout(
-        nox_session: Session,
-        target_ref: str,
+    nox_session: Session,
+    target_ref: str,
 ) -> Iterator[pathlib.Path]:
     """Make a clean checkout of a given version in tmp dir."""
     with tempfile.TemporaryDirectory() as tmp_dir_path:
         tmp_dir = pathlib.Path(tmp_dir_path)
-        git_checkout_dir = tmp_dir / f'pip-build-{target_ref}'
+        git_checkout_dir = tmp_dir / f"pip-build-{target_ref}"
         nox_session.run(
-            'git', 'worktree', 'add', '--force', '--checkout',
-            str(git_checkout_dir), str(target_ref),
-            external=True, silent=True,
+            # fmt: off
+            "git", "clone",
+            "--depth", "1",
+            "--config", "core.autocrlf=false",
+            "--branch", str(target_ref),
+            "--",
+            ".", str(git_checkout_dir),
+            # fmt: on
+            external=True,
+            silent=True,
         )
 
-        try:
-            yield git_checkout_dir
-        finally:
-            nox_session.run(
-                'git', 'worktree', 'remove', '--force',
-                str(git_checkout_dir),
-                external=True, silent=True,
-            )
+        yield git_checkout_dir
 
 
 def get_git_untracked_files() -> Iterator[str]:
     """List all local file paths that aren't tracked by Git."""
     git_ls_files_cmd = (
+        # fmt: off
         "git", "ls-files",
         "--ignored", "--exclude-standard",
         "--others", "--", ".",
+        # fmt: on
     )
     # session.run doesn't seem to return any output:
     ls_files_out = subprocess.check_output(git_ls_files_cmd, text=True)
